@@ -1,0 +1,17 @@
+# © Joseph Cameron - All Rights Reserved
+
+jfc_add_fuzz_tests(
+    C++_STANDARD 20
+
+    FUZZ_SOURCE_FILES
+        "${CMAKE_CURRENT_LIST_DIR}/reader_fuzz.cpp"
+
+    CORPUS_DIRECTORIES
+        "${CMAKE_CURRENT_LIST_DIR}/corpus/reader"
+
+    LIBRARIES
+        jfcnet
+
+    DEPENDENCIES
+        "jfcnet"
+)

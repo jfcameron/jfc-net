@@ -1,0 +1,6 @@
+[submodule "cmake/jfc-cmake"]
+	path = cmake/jfc-cmake
+	url = https://github.com/jfcameron/jfc-cmake.git
+[submodule "extern/enet"]
+	path = extern/enet
+	url = https://github.com/lsalzman/enet.git
