@@ -209,3 +209,40 @@ namespace jfc::net {
         return std::nullopt;
     }
 }
+
+namespace jfc::net {
+    std::optional<std::string> local_address_toward(const std::string &aAddress) {
+        const library started;
+
+        ENetAddress toward{};
+
+        if (enet_address_set_host_ip(&toward, aAddress.c_str()) != 0) return std::nullopt;
+
+        toward.port = 9;
+
+        const ENetSocket socket = enet_socket_create(ENET_SOCKET_TYPE_DATAGRAM);
+
+        if (socket == ENET_SOCKET_NULL) return std::nullopt;
+
+        std::optional<std::string> out;
+
+        ENetAddress mine{};
+        char text[64] = {};
+
+        if (enet_socket_connect(socket, &toward) == 0 && enet_socket_get_address(socket, &mine) == 0
+            && enet_address_get_host_ip(&mine, text, sizeof text) == 0)
+            out = std::string(text);
+
+        enet_socket_destroy(socket);
+
+        return out;
+    }
+
+    std::optional<std::string> lan_address() {
+        const auto found = local_address_toward("8.8.8.8");
+
+        if (!found || found->rfind("127.", 0) == 0 || *found == "0.0.0.0") return std::nullopt;
+
+        return found;
+    }
+}

@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 
 namespace jfc::net {
@@ -59,6 +60,12 @@ namespace jfc::net {
 
         std::unique_ptr<impl> m_pImpl;
     };
+
+    /// \brief the IPv4 address this machine would send from toward aAddress, as its system routes
+    [[nodiscard]] std::optional<std::string> local_address_toward(const std::string &aAddress);
+
+    /// \brief the local are network address
+    [[nodiscard]] std::optional<std::string> lan_address();
 }
 
 #endif

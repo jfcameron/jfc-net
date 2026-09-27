@@ -4,6 +4,7 @@
 
 #include <jfc/net/enet_host.h>
 
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <string>
@@ -194,4 +195,23 @@ TEST_CASE("**a peer that goes silent -- crashed, its connection lost -- is let g
 
     REQUIRE(took >= std::chrono::milliseconds(900));
     REQUIRE(took <= std::chrono::milliseconds(2500));
+}
+
+TEST_CASE("**the address this machine sends from toward itself is the loopback**", "[net][enet]") {
+    const auto toward = local_address_toward("127.0.0.1");
+
+    REQUIRE(toward);
+    REQUIRE(*toward == "127.0.0.1");
+
+    REQUIRE_FALSE(local_address_toward("not an address"));
+}
+
+TEST_CASE("**a LAN address is one another machine could use, or none**", "[net][enet]") {
+    const auto lan = lan_address();
+
+    if (!lan) return;
+
+    REQUIRE(lan->rfind("127.", 0) != 0);
+    REQUIRE(*lan != "0.0.0.0");
+    REQUIRE(std::count(lan->begin(), lan->end(), '.') == 3);
 }
