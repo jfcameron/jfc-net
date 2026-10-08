@@ -10,13 +10,10 @@
 namespace jfc::net {
     /// \brief a transport within one process: a server, and the clients connected to it
     ///
-    /// Not thread safe: a server and all of its clients are one host, as far as threads go, and are
-    /// used from one thread at a time.
+    /// Thread safe: the server and each of its clients may each be used from a thread of its
+    /// own, eg a game whose server steps on a thread beside the one that draws.
     class loopback_server final : public host {
     public:
-        /// \brief a client connected to this server. Both sides are told with a connected event;
-        /// messages may be sent either way before it is polled. The client knows its server as
-        /// SERVER_PEER
         [[nodiscard]] std::unique_ptr<host> connect();
 
         static constexpr peer_id SERVER_PEER = 0;

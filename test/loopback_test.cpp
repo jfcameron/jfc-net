@@ -7,6 +7,7 @@
 #include <cstddef>
 #include <initializer_list>
 #include <memory>
+#include <thread>
 #include <vector>
 
 using namespace jfc::net;
@@ -201,4 +202,37 @@ TEST_CASE("a loopback connection ends", "[net][loopback]") {
         REQUIRE_FALSE(server.poll());
         REQUIRE_FALSE(pClient->poll());
     }
+}
+
+TEST_CASE("a loopback server and its client, each on a thread of its own", "[net][loopback]") {
+    constexpr int MANY = 20000;
+
+    loopback_server server;
+    auto pClient = server.connect();
+
+    require_connected(server, 1);
+    require_connected(*pClient, loopback_server::SERVER_PEER);
+
+    int heardByServer = 0;
+
+    std::thread serving([&] {
+        for (int sent = 0; sent < MANY || heardByServer < MANY;) {
+            if (sent < MANY) server.send(1, delivery::reliable, bytes_of({sent++ % 256}));
+
+            while (const auto e = server.poll()) if (e->type == event::kind::received) ++heardByServer;
+        }
+    });
+
+    int heardByClient = 0;
+
+    for (int sent = 0; sent < MANY || heardByClient < MANY;) {
+        if (sent < MANY) pClient->send(loopback_server::SERVER_PEER, delivery::reliable, bytes_of({sent++ % 256}));
+
+        while (const auto e = pClient->poll()) if (e->type == event::kind::received) ++heardByClient;
+    }
+
+    serving.join();
+
+    REQUIRE(heardByServer == MANY);
+    REQUIRE(heardByClient == MANY);
 }
