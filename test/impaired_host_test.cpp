@@ -9,6 +9,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <span>
 
 using namespace jfc::net;
 
@@ -17,7 +18,7 @@ namespace {
         return {static_cast<std::byte>(aValue & 0xFF), static_cast<std::byte>(aValue >> 8)};
     }
 
-    [[nodiscard]] int value_of(const std::vector<std::byte> &aBytes) {
+    [[nodiscard]] int value_of(std::span<const std::byte> aBytes) {
         return static_cast<int>(aBytes[0]) | (static_cast<int>(aBytes[1]) << 8);
     }
 
@@ -50,7 +51,7 @@ namespace {
             return out;
         }
 
-        [[nodiscard]] static std::vector<int> values_of(const std::vector<event> &aEvents) {
+        [[nodiscard]] static std::vector<int> values_of(std::span<const event> aEvents) {
             std::vector<int> out;
 
             for (const auto &each : aEvents) if (each.type == event::kind::received) out.push_back(value_of(each.data));

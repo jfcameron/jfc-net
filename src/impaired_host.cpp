@@ -6,12 +6,13 @@
 #include <chrono>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 
 namespace jfc::net {
     namespace {
         void validate(const impairments &aImpairments) {
-            const auto refused = [](const std::string &aWhy) {
-                return std::invalid_argument("jfc::net::impaired_host: " + aWhy);
+            const auto refused = [](std::string_view aWhy) {
+                return std::invalid_argument("jfc::net::impaired_host: " + std::string(aWhy));
             };
 
             if (!(aImpairments.latency >= 0)) throw refused("a latency of less than nothing");

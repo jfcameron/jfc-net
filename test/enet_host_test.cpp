@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <span>
 
 using namespace jfc::net;
 
@@ -18,7 +19,7 @@ namespace {
         return {reinterpret_cast<const std::byte *>(aText.data()), reinterpret_cast<const std::byte *>(aText.data()) + aText.size()};
     }
 
-    [[nodiscard]] std::string text_of(const std::vector<std::byte> &aBytes) {
+    [[nodiscard]] std::string text_of(std::span<const std::byte> aBytes) {
         return {reinterpret_cast<const char *>(aBytes.data()), aBytes.size()};
     }
 
@@ -43,7 +44,7 @@ namespace {
             return true;
         }
 
-        [[nodiscard]] static std::size_t count(const std::vector<event> &aHeard, const event::kind aKind) {
+        [[nodiscard]] static std::size_t count(std::span<const event> aHeard, const event::kind aKind) {
             std::size_t out = 0;
 
             for (const auto &each : aHeard) out += each.type == aKind;
@@ -51,7 +52,7 @@ namespace {
             return out;
         }
 
-        [[nodiscard]] static std::vector<std::string> said(const std::vector<event> &aHeard) {
+        [[nodiscard]] static std::vector<std::string> said(std::span<const event> aHeard) {
             std::vector<std::string> out;
 
             for (const auto &each : aHeard) if (each.type == event::kind::received) out.push_back(text_of(each.data));
