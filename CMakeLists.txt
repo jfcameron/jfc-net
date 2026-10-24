@@ -1,4 +1,4 @@
-# © Joseph Cameron - All Rights Reserved
+# © Joseph Cameron - MIT License
 
 cmake_minimum_required(VERSION 3.21 FATAL_ERROR)
 
@@ -6,7 +6,9 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/jfc-cmake/jfclib.cmake")
 
 project(jfcnet
     VERSION 0.1
-    DESCRIPTION "jfc networking: a polled transport interface, its loopback, and a bounded binary codec")
+    DESCRIPTION "jfc networking: a polled transport interface, a loopback, a UDP host over ENet, an impaired host for simulating bad networks, and a bounded binary codec")
+
+include(GNUInstallDirs)
 
 option(JFC_BUILD_TESTS "Build unit tests" OFF)
 
@@ -48,7 +50,7 @@ if (NOT TARGET jfcnet)
 
     target_include_directories(jfcnet PUBLIC
         "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>")
+        "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
     target_compile_features(jfcnet PUBLIC cxx_std_20)
 
@@ -66,7 +68,11 @@ if (NOT TARGET jfcnet)
         )
     endif()
 
+    set(_jfcnet_owns_enet OFF)
+
     if (NOT TARGET enet)
+        set(_jfcnet_owns_enet ON)
+
         set(_jfc_outer_build_tests "${JFC_BUILD_TESTS}")
 
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/enet" "${CMAKE_CURRENT_BINARY_DIR}/extern/enet"
@@ -85,6 +91,8 @@ if (NOT TARGET jfcnet)
         ${CMAKE_CURRENT_SOURCE_DIR}/src/enet_host.cpp)
 
     add_library(jfc::net_enet ALIAS jfcnet_enet)
+
+    set_target_properties(jfcnet_enet PROPERTIES EXPORT_NAME net_enet)
 
     set_target_properties(jfcnet_enet PROPERTIES PREFIX "lib")
 
@@ -105,10 +113,45 @@ if (NOT TARGET jfcnet)
 
             LIBRARIES
                 jfcnet_enet
+                enet
         )
     endif()
 
     if (JFC_BUILD_FUZZERS)
         add_subdirectory(fuzz)
     endif()
+
+    include(CMakePackageConfigHelpers)
+
+    set(_jfcnet_installed jfcnet)
+
+    if (_jfcnet_owns_enet)
+        list(APPEND _jfcnet_installed jfcnet_enet enet)
+    endif()
+
+    install(TARGETS ${_jfcnet_installed}
+        EXPORT jfcnet-targets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+
+    install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/include/"
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+
+    install(EXPORT jfcnet-targets
+        FILE jfcnet-targets.cmake
+        NAMESPACE jfc::
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/jfcnet")
+
+    write_basic_package_version_file(
+        "${PROJECT_BINARY_DIR}/jfcnet-config-version.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMajorVersion)
+
+    file(WRITE "${PROJECT_BINARY_DIR}/jfcnet-config.cmake"
+"include(\"\${CMAKE_CURRENT_LIST_DIR}/jfcnet-targets.cmake\")
+")
+
+    install(FILES
+        "${PROJECT_BINARY_DIR}/jfcnet-config.cmake"
+        "${PROJECT_BINARY_DIR}/jfcnet-config-version.cmake"
+        DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/jfcnet")
 endif()

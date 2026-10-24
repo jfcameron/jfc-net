@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #ifndef JFC_NET_IMPAIRED_HOST_H
 #define JFC_NET_IMPAIRED_HOST_H
@@ -37,6 +37,8 @@ namespace jfc::net {
 
     /// \brief a host that delays messages, drops them etc. deliberately unreliable to
     /// be used to simulate a bad network
+    ///
+    /// A message the wrapped host refuses is thrown from the call that hands it on: a later send or poll.
     class impaired_host final : public host {
     public:
         using clock_type = std::function<double()>;

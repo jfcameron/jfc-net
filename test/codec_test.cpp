@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #include <jfc/catch.hpp>
 
@@ -110,6 +110,7 @@ TEST_CASE("everything written reads back", "[net][codec]") {
         .write_f32(0.1f)
         .write_f64(-1e300)
         .write_bool(true)
+        .write_bool(false)
         .write_varint(1234567890123)
         .write_varint_signed(std::numeric_limits<std::int64_t>::min())
         .write_varint_signed(std::numeric_limits<std::int64_t>::max())
@@ -130,6 +131,7 @@ TEST_CASE("everything written reads back", "[net][codec]") {
     REQUIRE(r.read_f32() == 0.1f);
     REQUIRE(r.read_f64() == -1e300);
     REQUIRE(r.read_bool());
+    REQUIRE_FALSE(r.read_bool());
     REQUIRE(r.read_varint() == 1234567890123);
     REQUIRE(r.read_varint_signed() == std::numeric_limits<std::int64_t>::min());
     REQUIRE(r.read_varint_signed() == std::numeric_limits<std::int64_t>::max());
