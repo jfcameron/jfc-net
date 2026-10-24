@@ -47,8 +47,3 @@ Builds a message's bytes one field after another: fixed width integers and float
 
 #### `reader`
 Reads back what a writer wrote, in the same order. What it reads came from the network, so it treats every message as untrusted. Reading a string or byte array requires a maximum length from the caller. There is no unbounded read, so a message cannot make the reader allocate more than the caller allowed. It also refuses truncated fields, booleans other than 0 or 1, varints longer than their value needs, and, at `expect_end`, bytes left over. A refusal is thrown as a `jfc::net::exception` saying what was being read and at which byte. The reader is fuzzed against the writer: anything it accepts must write back as exactly the same bytes.
-
-## Why an interface?
-So that code above a transport does not care which one it is on. A game's server and client can be written once, then run against the loopback in single player and in tests, against ENet when playing over a network, and against an impaired host when checking how either holds up on a poor connection.
-
-It also keeps dependencies where they are needed. Only the executable that actually opens a socket links `jfcnet_enet`, and with it ENet, while the libraries and tests beneath it link the interface alone. And it leaves room for transports that don't exist yet. Browsers cannot use UDP, so a game played in one needs something like WebSockets or WebRTC instead. That would be another implementation of the same interface, rather than a change to everything using it.
