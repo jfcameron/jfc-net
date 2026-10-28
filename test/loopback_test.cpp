@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #include <jfc/catch.hpp>
 
@@ -75,6 +75,8 @@ TEST_CASE("a loopback connection", "[net][loopback]") {
     }
 
     SECTION("messages arrive in the order they were sent") {
+        require_connected(*pClient, SERVER);
+
         for (int i = 0; i < 10; ++i) {
             pClient->send(SERVER, i % 2 ? delivery::reliable : delivery::unreliable, bytes_of({i}));
         }
@@ -86,6 +88,8 @@ TEST_CASE("a loopback connection", "[net][loopback]") {
     }
 
     SECTION("a message is copied on send, not borrowed") {
+        require_connected(server, 1);
+
         auto data = bytes_of({5});
         server.send(1, delivery::reliable, data);
         data[0] = std::byte{6};
@@ -95,6 +99,8 @@ TEST_CASE("a loopback connection", "[net][loopback]") {
     }
 
     SECTION("an empty message is a message") {
+        require_connected(*pClient, SERVER);
+
         pClient->send(SERVER, delivery::reliable, {});
 
         require_connected(server, 1);
@@ -112,6 +118,9 @@ TEST_CASE("a loopback server with many clients", "[net][loopback]") {
     require_connected(server, 2);
 
     SECTION("each is told apart, and sent to alone") {
+        require_connected(*pFirst, SERVER);
+        require_connected(*pSecond, SERVER);
+
         pSecond->send(SERVER, delivery::reliable, bytes_of({2}));
         pFirst->send(SERVER, delivery::reliable, bytes_of({1}));
         server.send(2, delivery::reliable, bytes_of({20}));
@@ -119,9 +128,7 @@ TEST_CASE("a loopback server with many clients", "[net][loopback]") {
         require_received(server, 2, delivery::reliable, bytes_of({2}));
         require_received(server, 1, delivery::reliable, bytes_of({1}));
 
-        require_connected(*pFirst, SERVER);
         REQUIRE_FALSE(pFirst->poll());
-        require_connected(*pSecond, SERVER);
         require_received(*pSecond, SERVER, delivery::reliable, bytes_of({20}));
     }
 
@@ -132,6 +139,31 @@ TEST_CASE("a loopback server with many clients", "[net][loopback]") {
         const auto pThird = server.connect();
 
         require_connected(server, 3);
+    }
+}
+
+TEST_CASE("a loopback message sent before the connected event is polled is dropped", "[net][loopback]") {
+    loopback_server server;
+    const auto pClient = server.connect();
+
+    SECTION("by a client") {
+        pClient->send(SERVER, delivery::reliable, bytes_of({1}));
+        require_connected(*pClient, SERVER);
+        pClient->send(SERVER, delivery::reliable, bytes_of({2}));
+
+        require_connected(server, 1);
+        require_received(server, 1, delivery::reliable, bytes_of({2}));
+        REQUIRE_FALSE(server.poll());
+    }
+
+    SECTION("by the server") {
+        server.send(1, delivery::reliable, bytes_of({1}));
+        require_connected(server, 1);
+        server.send(1, delivery::reliable, bytes_of({2}));
+
+        require_connected(*pClient, SERVER);
+        require_received(*pClient, SERVER, delivery::reliable, bytes_of({2}));
+        REQUIRE_FALSE(pClient->poll());
     }
 }
 
@@ -181,6 +213,7 @@ TEST_CASE("a loopback connection ends", "[net][loopback]") {
     SECTION("the server is destroyed, the client is told, after what it was sent") {
         auto pServer = std::make_unique<loopback_server>();
         auto pOther = pServer->connect();
+        require_connected(*pServer, 1);
         require_connected(*pOther, SERVER);
 
         pServer->send(1, delivery::reliable, bytes_of({9}));

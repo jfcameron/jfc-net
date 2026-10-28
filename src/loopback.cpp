@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #include <jfc/net/loopback.h>
 
@@ -32,17 +32,23 @@ namespace jfc::net {
     }
 
     struct loopback_server::_state final {
+        struct client_end final {
+            std::shared_ptr<_queue> inbox;
+
+            bool known = false;
+        };
+
         std::mutex mutex;
 
         bool serverAlive = true;
         _queue serverInbox;
-        std::map<peer_id, std::shared_ptr<_queue>> clients;
+        std::map<peer_id, client_end> clients;
         peer_id nextPeer = 1;
 
         void end(const peer_id aPeer) {
             const auto found = clients.find(aPeer);
             if (found == clients.end()) return;
-            found->second->push_back(_disconnected(SERVER_PEER));
+            found->second.inbox->push_back(_disconnected(SERVER_PEER));
             clients.erase(found);
             if (serverAlive) serverInbox.push_back(_disconnected(aPeer));
         }
@@ -72,7 +78,7 @@ namespace jfc::net {
             const std::span<const std::byte> aMessage) override {
             const std::lock_guard lock(mpState->mutex);
 
-            if (aPeer != SERVER_PEER || !_connected_now()) return;
+            if (aPeer != SERVER_PEER || !mKnowsServer || !_connected_now()) return;
             mpState->serverInbox.push_back(_received(mId, aDelivery, aMessage));
         }
 
@@ -86,7 +92,9 @@ namespace jfc::net {
         std::optional<event> poll() override {
             const std::lock_guard lock(mpState->mutex);
 
-            return _pop(*mpInbox);
+            auto out = _pop(*mpInbox);
+            if (out && out->type == event::kind::connected) mKnowsServer = true;
+            return out;
         }
 
     private:
@@ -97,6 +105,8 @@ namespace jfc::net {
         std::shared_ptr<_state> mpState;
         peer_id mId;
         std::shared_ptr<_queue> mpInbox;
+
+        bool mKnowsServer = false;
     };
 
     loopback_server::loopback_server()
@@ -106,7 +116,7 @@ namespace jfc::net {
         const std::lock_guard lock(mpState->mutex);
 
         mpState->serverAlive = false;
-        for (auto &[id, pInbox] : mpState->clients) pInbox->push_back(_disconnected(SERVER_PEER));
+        for (auto &[id, client] : mpState->clients) client.inbox->push_back(_disconnected(SERVER_PEER));
         mpState->clients.clear();
     }
 
@@ -117,7 +127,7 @@ namespace jfc::net {
         auto pInbox = std::make_shared<_queue>();
 
         pInbox->push_back(_connected(SERVER_PEER));
-        mpState->clients.emplace(id, pInbox);
+        mpState->clients.emplace(id, _state::client_end{pInbox});
         mpState->serverInbox.push_back(_connected(id));
 
         return std::make_unique<_client>(mpState, id, std::move(pInbox));
@@ -127,8 +137,8 @@ namespace jfc::net {
         const std::span<const std::byte> aMessage) {
         const std::lock_guard lock(mpState->mutex);
 
-        if (const auto found = mpState->clients.find(aPeer); found != mpState->clients.end()) {
-            found->second->push_back(_received(SERVER_PEER, aDelivery, aMessage));
+        if (const auto found = mpState->clients.find(aPeer); found != mpState->clients.end() && found->second.known) {
+            found->second.inbox->push_back(_received(SERVER_PEER, aDelivery, aMessage));
         }
     }
 
@@ -141,6 +151,10 @@ namespace jfc::net {
     std::optional<event> loopback_server::poll() {
         const std::lock_guard lock(mpState->mutex);
 
-        return _pop(mpState->serverInbox);
+        auto out = _pop(mpState->serverInbox);
+        if (out && out->type == event::kind::connected) {
+            if (const auto found = mpState->clients.find(out->peer); found != mpState->clients.end()) found->second.known = true;
+        }
+        return out;
     }
 }

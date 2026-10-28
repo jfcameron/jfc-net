@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #ifndef JFC_NET_ENET_HOST_H
 #define JFC_NET_ENET_HOST_H
@@ -16,6 +16,11 @@ namespace jfc::net {
         //! the most peers it will have at once. e.g: max player count on a server
         std::size_t most_peers = 64;
 
+        //! the longest message it sends or takes: send throws for longer, and a longer one arriving is
+        //! dropped, so both ends should agree on it
+        std::size_t most_message_bytes = 32 * 1024 * 1024;
+
+        //! how long a peer may go unheard before it is let go, and how long a connection may take to be made
         std::uint32_t timeout_ms = 5000;
 
         /// \name How much of what is sent unreliably ENet lets through
@@ -31,7 +36,7 @@ namespace jfc::net {
     /// Not thread safe.
     class enet_host final : public host {
     public:
-        /// \brief a server's end: list for connections on aPort
+        /// \brief a server's end: listen for connections on aPort
         [[nodiscard]] static std::unique_ptr<enet_host> listen(std::uint16_t aPort, enet_host_settings aSettings = {});
 
         /// \brief a client's end: connecting to a server at aAddress, and aPort
@@ -41,7 +46,7 @@ namespace jfc::net {
         //! the port being used
         [[nodiscard]] std::uint16_t port() const;
 
-        //! for a client to check if it is connected or not
+        //! a client's server, to send to once its connected event is polled; 0 on a listening host
         [[nodiscard]] peer_id server_peer() const;
 
         void send(peer_id aPeer, delivery aDelivery, std::span<const std::byte> aMessage) override;
@@ -64,7 +69,7 @@ namespace jfc::net {
     /// \brief the IPv4 address this machine would send from toward aAddress, as its system routes
     [[nodiscard]] std::optional<std::string> local_address_toward(const std::string &aAddress);
 
-    /// \brief the local are network address
+    /// \brief the local area network address
     [[nodiscard]] std::optional<std::string> lan_address();
 }
 

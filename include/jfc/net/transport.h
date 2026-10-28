@@ -1,4 +1,4 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #ifndef JFC_NET_TRANSPORT_H
 #define JFC_NET_TRANSPORT_H
@@ -48,7 +48,10 @@ namespace jfc::net {
     /// one process and for tests; enet_host.h, over UDP.
     class host {
     public:
-        /// \brief queues a message to a peer. 
+        /// \brief queues a message to a peer. Before this host has polled the peer's connected event,
+        /// or after its disconnected one, it does nothing.
+        /// \throws exception for a message longer than this host carries
+        /// (enet_host_settings::most_message_bytes; the loopback carries any length)
         virtual void send(const peer_id aPeer, const delivery aDelivery, const std::span<const std::byte> aMessage) = 0;
 
         /// \brief ends a connection. Messages already sent to the peer still arrive, before it learns

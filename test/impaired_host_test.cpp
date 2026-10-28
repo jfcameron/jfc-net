@@ -1,13 +1,17 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #include <jfc/catch.hpp>
 
+#include <jfc/net/exception.h>
 #include <jfc/net/impaired_host.h>
 #include <jfc/net/loopback.h>
 
+#include <chrono>
 #include <cstddef>
 #include <memory>
+#include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 #include <span>
 
@@ -59,6 +63,39 @@ namespace {
             return out;
         }
     };
+}
+
+TEST_CASE("**by default, a message is held by the steady clock**", "[net][impaired]") {
+    const auto pServer = std::make_shared<loopback_server>();
+
+    impaired_host client(std::shared_ptr<host>(pServer->connect()), {0.2});
+
+    while (client.poll()) {}
+    while (pServer->poll()) {}
+
+    const auto begun = impaired_host::steady_seconds();
+
+    client.send(loopback_server::SERVER_PEER, delivery::reliable, bytes_of(1));
+
+    REQUIRE_FALSE(client.poll());
+    REQUIRE_FALSE(pServer->poll());
+
+    std::optional<event> arrived;
+
+    while (!arrived && impaired_host::steady_seconds() - begun < 2) {
+        while (client.poll()) {}
+
+        arrived = pServer->poll();
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+
+    const auto took = impaired_host::steady_seconds() - begun;
+
+    REQUIRE(arrived);
+    REQUIRE(value_of(arrived->data) == 1);
+    REQUIRE(took >= 0.2);
+    REQUIRE(took < 1.5);
 }
 
 TEST_CASE("**the plain impairments impair nothing**", "[net][impaired]") {
@@ -194,6 +231,33 @@ TEST_CASE("**changed, only what is sent after is impaired the new way**", "[net]
     f.send(3);
 
     REQUIRE(fixture::values_of(f.at(1)) == std::vector<int>{3});
+}
+
+TEST_CASE("**a message the wrapped host refuses is thrown when it is handed on, and only then**", "[net][impaired]") {
+    struct refusing final : host {
+        void send(peer_id, delivery, std::span<const std::byte>) override { throw exception("refused"); }
+        void disconnect(peer_id) override {}
+        [[nodiscard]] std::optional<event> poll() override { return {}; }
+    };
+
+    double now = 0;
+
+    impaired_host subject(std::make_shared<refusing>(), {1.0}, [&] { return now; });
+
+    subject.send(1, delivery::reliable, bytes_of(1));
+    subject.send(1, delivery::reliable, bytes_of(2));
+
+    REQUIRE_FALSE(subject.poll());
+
+    now = 1;
+
+    REQUIRE_THROWS_AS(subject.poll(), exception);
+    REQUIRE(subject.held() == 1);
+
+    REQUIRE_THROWS_AS(subject.poll(), exception);
+    REQUIRE(subject.held() == 0);
+
+    REQUIRE_FALSE(subject.poll());
 }
 
 TEST_CASE("**impairments that are no impairments are refused**", "[net][impaired]") {
