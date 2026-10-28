@@ -74,6 +74,15 @@
       }
     },
     {
+      "name": "linux-docs",
+      "displayName": "Linux / documentation",
+      "inherits": "linux-gcc",
+      "cacheVariables": {
+        "JFC_BUILD_TESTS": "OFF",
+        "JFC_BUILD_DOCS": "ON"
+      }
+    },
+    {
       "name": "linux-clang-asan",
       "displayName": "Linux / clang / asan + ubsan",
       "inherits": "linux-clang",
@@ -123,6 +132,71 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_CXX_FLAGS": "/W4 /EHsc /permissive-"
+      }
+    },
+    {
+      "name": "ios",
+      "displayName": "iOS / clang (device, compile only)",
+      "inherits": "base",
+      "generator": "Ninja",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "description": "The tests are built but not run: they need a device or a simulator.",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "iOS",
+        "CMAKE_OSX_ARCHITECTURES": "arm64",
+        "CMAKE_OSX_SYSROOT": "iphoneos",
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra"
+      }
+    },
+    {
+      "name": "ios-simulator",
+      "displayName": "iOS simulator / clang (arm64)",
+      "inherits": "ios",
+      "description": "Boot a simulator first: ctest runs the tests in the booted one.",
+      "cacheVariables": {
+        "CMAKE_OSX_SYSROOT": "iphonesimulator",
+        "CMAKE_CROSSCOMPILING_EMULATOR": "xcrun;simctl;spawn;booted"
+      }
+    },
+    {
+      "name": "android-arm64",
+      "displayName": "Android / arm64-v8a / NDK clang",
+      "description": "Set ANDROID_NDK_HOME to an NDK (r23 or later). ctest runs the tests on the device or emulator adb is connected to.",
+      "inherits": "base",
+      "generator": "Ninja",
+      "toolchainFile": "${sourceDir}/cmake/jfc-cmake/toolchains/toolchain-android.cmake",
+      "cacheVariables": {
+        "ANDROID_ABI": "arm64-v8a",
+        "ANDROID_PLATFORM": "android-24",
+        "CMAKE_CXX_FLAGS": "-Wall -Wextra"
+      }
+    },
+    {
+      "name": "android-armv7",
+      "displayName": "Android / armeabi-v7a / NDK clang",
+      "inherits": "android-arm64",
+      "cacheVariables": {
+        "ANDROID_ABI": "armeabi-v7a"
+      }
+    },
+    {
+      "name": "android-x86_64",
+      "displayName": "Android / x86_64 / NDK clang",
+      "inherits": "android-arm64",
+      "cacheVariables": {
+        "ANDROID_ABI": "x86_64"
+      }
+    },
+    {
+      "name": "android-x86",
+      "displayName": "Android / x86 / NDK clang",
+      "inherits": "android-arm64",
+      "cacheVariables": {
+        "ANDROID_ABI": "x86"
       }
     },
     {
@@ -208,6 +282,30 @@
     {
       "name": "windows-msvc-cross",
       "configurePreset": "windows-msvc-cross"
+    },
+    {
+      "name": "ios",
+      "configurePreset": "ios"
+    },
+    {
+      "name": "ios-simulator",
+      "configurePreset": "ios-simulator"
+    },
+    {
+      "name": "android-arm64",
+      "configurePreset": "android-arm64"
+    },
+    {
+      "name": "android-armv7",
+      "configurePreset": "android-armv7"
+    },
+    {
+      "name": "android-x86_64",
+      "configurePreset": "android-x86_64"
+    },
+    {
+      "name": "android-x86",
+      "configurePreset": "android-x86"
     }
   ],
   "testPresets": [

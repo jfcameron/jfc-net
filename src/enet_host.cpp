@@ -1,13 +1,14 @@
-// © Joseph Cameron - All Rights Reserved
+// © Joseph Cameron - MIT License
 
 #include <jfc/net/enet_host.h>
+#include <jfc/net/exception.h>
 
 #include <enet/enet.h>
 
 #include <cstdint>
+#include <deque>
 #include <map>
 #include <mutex>
-#include <stdexcept>
 #include <utility>
 
 namespace jfc::net {
@@ -15,6 +16,16 @@ namespace jfc::net {
         constexpr enet_uint8 RELIABLE = 0;
         constexpr enet_uint8 UNRELIABLE = 1;
         constexpr std::size_t CHANNELS = 2;
+
+        [[nodiscard]] bool _connecting(const ENetPeer &aPeer) {
+            switch (aPeer.state) {
+                case ENET_PEER_STATE_CONNECTING:
+                case ENET_PEER_STATE_ACKNOWLEDGING_CONNECT:
+                case ENET_PEER_STATE_CONNECTION_PENDING:
+                case ENET_PEER_STATE_CONNECTION_SUCCEEDED: return true;
+                default: return false;
+            }
+        }
 
         class library final {
         public:
@@ -24,7 +35,7 @@ namespace jfc::net {
                 if (count()++ == 0 && enet_initialize() != 0) {
                     --count();
 
-                    throw std::runtime_error("jfc::net::enet_host: ENet would not start");
+                    throw exception("jfc::net::enet_host: ENet would not start");
                 }
             }
 
@@ -50,6 +61,8 @@ namespace jfc::net {
 
         std::map<peer_id, ENetPeer *> peers;
         peer_id next = 1;
+
+        std::deque<event> made;
 
         peer_id server = 0;
 
@@ -102,7 +115,9 @@ namespace jfc::net {
         pImpl->pHost = enet_host_create(&address, aSettings.most_peers, CHANNELS, 0, 0);
 
         if (!pImpl->pHost)
-            throw std::runtime_error("jfc::net::enet_host: could not listen on port " + std::to_string(aPort));
+            throw exception("jfc::net::enet_host: could not listen on port " + std::to_string(aPort));
+
+        pImpl->pHost->maximumPacketSize = aSettings.most_message_bytes;
 
         return std::unique_ptr<enet_host>(new enet_host(std::move(pImpl)));
     }
@@ -115,18 +130,22 @@ namespace jfc::net {
 
         pImpl->pHost = enet_host_create(nullptr, aSettings.most_peers, CHANNELS, 0, 0);
 
-        if (!pImpl->pHost) throw std::runtime_error("jfc::net::enet_host: could not make a host to connect from");
+        if (!pImpl->pHost) throw exception("jfc::net::enet_host: could not make a host to connect from");
+
+        pImpl->pHost->maximumPacketSize = aSettings.most_message_bytes;
 
         ENetAddress address{};
 
         if (enet_address_set_host(&address, aAddress.c_str()) != 0)
-            throw std::runtime_error("jfc::net::enet_host: there is no " + aAddress + " to connect to");
+            throw exception("jfc::net::enet_host: there is no " + aAddress + " to connect to");
 
         address.port = aPort;
 
         ENetPeer *const pServer = enet_host_connect(pImpl->pHost, &address, CHANNELS, 0);
 
-        if (!pServer) throw std::runtime_error("jfc::net::enet_host: could not begin connecting to " + aAddress);
+        if (!pServer) throw exception("jfc::net::enet_host: could not begin connecting to " + aAddress);
+
+        enet_peer_timeout(pServer, 0, aSettings.timeout_ms, aSettings.timeout_ms);
 
         pImpl->server = pImpl->id_of(pServer);
 
@@ -146,6 +165,12 @@ namespace jfc::net {
     }
 
     void enet_host::send(const peer_id aPeer, const delivery aDelivery, const std::span<const std::byte> aMessage) {
+        const auto most = m_pImpl->settings.most_message_bytes;
+
+        if (aMessage.size() > most)
+            throw exception("jfc::net::enet_host: a message of " + std::to_string(aMessage.size())
+                + " bytes, longer than the " + std::to_string(most) + " allowed");
+
         const auto found = m_pImpl->peers.find(aPeer);
 
         if (found == m_pImpl->peers.end() || found->second->state != ENET_PEER_STATE_CONNECTED) return;
@@ -153,9 +178,16 @@ namespace jfc::net {
         const bool reliable = aDelivery == delivery::reliable;
 
         ENetPacket *const pPacket = enet_packet_create(aMessage.data(), aMessage.size(),
-            reliable ? ENET_PACKET_FLAG_RELIABLE : 0);
+            reliable ? ENET_PACKET_FLAG_RELIABLE : ENET_PACKET_FLAG_UNRELIABLE_FRAGMENT);
 
-        if (enet_peer_send(found->second, reliable ? RELIABLE : UNRELIABLE, pPacket) != 0) enet_packet_destroy(pPacket);
+        if (!pPacket)
+            throw exception("jfc::net::enet_host: no memory for a message of " + std::to_string(aMessage.size()) + " bytes");
+
+        if (enet_peer_send(found->second, reliable ? RELIABLE : UNRELIABLE, pPacket) != 0) {
+            enet_packet_destroy(pPacket);
+
+            throw exception("jfc::net::enet_host: ENet refused a message of " + std::to_string(aMessage.size()) + " bytes");
+        }
 
         enet_host_flush(m_pImpl->pHost);
     }
@@ -165,12 +197,34 @@ namespace jfc::net {
 
         if (found == m_pImpl->peers.end()) return;
 
-        enet_peer_disconnect_later(found->second, 0);
+        ENetPeer *const pPeer = found->second;
+
+        if (_connecting(*pPeer)) {
+            enet_peer_disconnect(pPeer, 0);
+
+            pPeer->data = nullptr;
+
+            m_pImpl->peers.erase(found);
+
+            m_pImpl->made.push_back(event{event::kind::disconnected, aPeer, delivery::reliable, {}});
+
+            return;
+        }
+
+        enet_peer_disconnect_later(pPeer, 0);
 
         enet_host_flush(m_pImpl->pHost);
     }
 
     std::optional<event> enet_host::poll() {
+        if (!m_pImpl->made.empty()) {
+            auto out = std::move(m_pImpl->made.front());
+
+            m_pImpl->made.pop_front();
+
+            return out;
+        }
+
         ENetEvent happened{};
 
         while (enet_host_service(m_pImpl->pHost, &happened, 0) > 0) {
