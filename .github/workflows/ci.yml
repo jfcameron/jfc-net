@@ -186,11 +186,19 @@ jobs:
       - name: report the toolchain
         run: emcc --version
 
+      - name: install browser test tools
+        run: |
+          npm install --no-save --package-lock=false playwright
+          npx playwright install --with-deps chromium firefox
+
       - name: configure
-        run: emcmake cmake --preset emscripten
+        run: emcmake cmake --preset emscripten-test -DJFC_NET_TEST_REAL_BROWSERS=ON
 
       - name: build
-        run: cmake --build --preset emscripten
+        run: cmake --build --preset emscripten-test
+
+      - name: test
+        run: ctest --preset emscripten-test
 
   docs:
     name: doxygen
