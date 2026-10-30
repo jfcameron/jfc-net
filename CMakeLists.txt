@@ -6,12 +6,13 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/jfc-cmake/jfclib.cmake")
 
 project(jfcnet
     VERSION 0.1
-    DESCRIPTION "jfc networking: a polled transport interface, a loopback, a UDP host over ENet, an impaired host for simulating bad networks, and a bounded binary codec")
+    DESCRIPTION "jfc networking: polled loopback, ENet/UDP and browser WebRTC hosts, simulated network impairments and a bounded binary codec")
 
 include(GNUInstallDirs)
 
 option(JFC_BUILD_TESTS "Build unit tests" OFF)
 option(JFC_BUILD_DOCS "Build documentation" OFF)
+option(JFC_NET_TEST_REAL_BROWSERS "Test WebRTC with installed Playwright browsers (requires sockets)" OFF)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -55,14 +56,33 @@ if (NOT TARGET jfcnet)
 
     target_compile_features(jfcnet PUBLIC cxx_std_20)
 
+    if (EMSCRIPTEN)
+        add_library(jfcnet_webrtc STATIC src/webrtc_host.cpp)
+        add_library(jfc::net_webrtc ALIAS jfcnet_webrtc)
+        set_target_properties(jfcnet_webrtc PROPERTIES
+            EXPORT_NAME net_webrtc
+            CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+        target_link_libraries(jfcnet_webrtc PUBLIC jfcnet)
+        set_property(TARGET jfcnet_webrtc PROPERTY INTERFACE_LINK_OPTIONS
+            "$<BUILD_INTERFACE:SHELL:--js-library \"${CMAKE_CURRENT_SOURCE_DIR}/src/webrtc.js\">"
+            "$<INSTALL_INTERFACE:SHELL:--js-library \"\${_IMPORT_PREFIX}/${CMAKE_INSTALL_DATADIR}/jfcnet/webrtc.js\">")
+        set_property(TARGET jfcnet_webrtc PROPERTY INTERFACE_LINK_DEPENDS
+            "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/webrtc.js>"
+            "$<INSTALL_INTERFACE:${CMAKE_INSTALL_DATADIR}/jfcnet/webrtc.js>")
+    endif()
+
     if (JFC_BUILD_TESTS)
+        set(_jfcnet_core_tests
+            "${CMAKE_CURRENT_SOURCE_DIR}/test/codec_test.cpp"
+            "${CMAKE_CURRENT_SOURCE_DIR}/test/impaired_host_test.cpp")
+        if (NOT EMSCRIPTEN)
+            list(APPEND _jfcnet_core_tests "${CMAKE_CURRENT_SOURCE_DIR}/test/loopback_test.cpp")
+        endif()
         jfc_add_tests(
             C++_STANDARD 20
 
             TEST_SOURCE_FILES
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/codec_test.cpp"
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/impaired_host_test.cpp"
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/loopback_test.cpp"
+                ${_jfcnet_core_tests}
 
             LIBRARIES
                 jfcnet
@@ -71,60 +91,80 @@ if (NOT TARGET jfcnet)
 
     set(_jfcnet_owns_enet OFF)
 
-    if (NOT TARGET enet)
-        set(_jfcnet_owns_enet ON)
+    if (NOT EMSCRIPTEN)
+        if (NOT TARGET enet)
+            set(_jfcnet_owns_enet ON)
 
-        set(_jfc_outer_build_tests "${JFC_BUILD_TESTS}")
+            set(_jfc_outer_build_tests "${JFC_BUILD_TESTS}")
 
-        add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/enet" "${CMAKE_CURRENT_BINARY_DIR}/extern/enet"
-            EXCLUDE_FROM_ALL)
+            add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/extern/enet" "${CMAKE_CURRENT_BINARY_DIR}/extern/enet"
+                EXCLUDE_FROM_ALL)
 
-        set(JFC_BUILD_TESTS "${_jfc_outer_build_tests}")
+            set(JFC_BUILD_TESTS "${_jfc_outer_build_tests}")
 
-        target_include_directories(enet PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/enet/include>")
+            target_include_directories(enet PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/extern/enet/include>")
 
-        if (WIN32)
-            target_link_libraries(enet PUBLIC ws2_32 winmm)
+            if (WIN32)
+                target_link_libraries(enet PUBLIC ws2_32 winmm)
+            endif()
         endif()
-    endif()
 
-    add_library(jfcnet_enet STATIC
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/enet_host.cpp)
+        add_library(jfcnet_enet STATIC
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/enet_host.cpp)
 
-    add_library(jfc::net_enet ALIAS jfcnet_enet)
+        add_library(jfc::net_enet ALIAS jfcnet_enet)
 
-    set_target_properties(jfcnet_enet PROPERTIES EXPORT_NAME net_enet)
+        set_target_properties(jfcnet_enet PROPERTIES EXPORT_NAME net_enet)
 
-    set_target_properties(jfcnet_enet PROPERTIES PREFIX "lib")
+        set_target_properties(jfcnet_enet PROPERTIES PREFIX "lib")
 
-    target_link_libraries(jfcnet_enet
-        PUBLIC
-            jfcnet
-        PRIVATE
-            enet)
+        target_link_libraries(jfcnet_enet
+            PUBLIC
+                jfcnet
+            PRIVATE
+                enet)
 
-    target_compile_features(jfcnet_enet PUBLIC cxx_std_20)
+        target_compile_features(jfcnet_enet PUBLIC cxx_std_20)
 
-    if (JFC_BUILD_TESTS)
-        jfc_add_tests(
-            C++_STANDARD 20
+        if (JFC_BUILD_TESTS)
+            jfc_add_tests(
+                C++_STANDARD 20
 
-            TEST_SOURCE_FILES
-                "${CMAKE_CURRENT_SOURCE_DIR}/test/enet_host_test.cpp"
+                TEST_SOURCE_FILES
+                    "${CMAKE_CURRENT_SOURCE_DIR}/test/enet_host_test.cpp"
 
-            LIBRARIES
-                jfcnet_enet
-                enet
-        )
+                LIBRARIES
+                    jfcnet_enet
+                    enet
+            )
+        endif()
     endif()
 
     if (JFC_BUILD_FUZZERS)
         add_subdirectory(fuzz)
     endif()
 
+    option(JFC_NET_BUILD_WEBRTC_PROBE "Build the standalone browser WebRTC connection probe" OFF)
+    if (EMSCRIPTEN AND JFC_NET_BUILD_WEBRTC_PROBE)
+        add_executable(jfcnet_webrtc_probe test/browser/probe.cpp)
+        set_target_properties(jfcnet_webrtc_probe PROPERTIES SUFFIX ".html"
+            CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON CXX_EXTENSIONS OFF)
+        target_link_libraries(jfcnet_webrtc_probe PRIVATE jfcnet_webrtc)
+        target_link_options(jfcnet_webrtc_probe PRIVATE -sALLOW_MEMORY_GROWTH -sEXIT_RUNTIME=1)
+    endif()
+
+    if (JFC_BUILD_TESTS)
+        add_subdirectory(test/browser)
+    endif()
+
     include(CMakePackageConfigHelpers)
 
     set(_jfcnet_installed jfcnet)
+
+    if (TARGET jfcnet_webrtc)
+        list(APPEND _jfcnet_installed jfcnet_webrtc)
+        install(FILES src/webrtc.js DESTINATION "${CMAKE_INSTALL_DATADIR}/jfcnet")
+    endif()
 
     if (_jfcnet_owns_enet)
         list(APPEND _jfcnet_installed jfcnet_enet enet)
