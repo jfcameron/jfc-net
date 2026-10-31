@@ -1,7 +1,7 @@
 // © Joseph Cameron - MIT License
 
-#ifndef JFC_NET_IMPAIRED_HOST_H
-#define JFC_NET_IMPAIRED_HOST_H
+#ifndef JFC_NET_EXT_IMPAIRED_HOST_H
+#define JFC_NET_EXT_IMPAIRED_HOST_H
 
 #include <jfc/net/transport.h>
 
@@ -14,7 +14,7 @@
 #include <utility>
 #include <vector>
 
-namespace jfc::net {
+namespace jfc::net::ext {
     /// \brief what an impaired_host does to what it sends
     ///
     /// The plain values impair nothing: a host with them sends as the host it wraps would.

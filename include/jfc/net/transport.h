@@ -44,14 +44,12 @@ namespace jfc::net {
 
     /// \brief one end of a transport: sends messages to peers, and reports what arrived
     ///
-    /// Not thread safe: one host is used from one thread at a time. Implementations: loopback.h, for
-    /// one process and for tests; enet_host.h, over UDP.
+    /// Not thread safe: one host is used from one thread at a time.
     class host {
     public:
         /// \brief queues a message to a peer. Before this host has polled the peer's connected event,
         /// or after its disconnected one, it does nothing.
-        /// \throws exception for a message longer than this host carries
-        /// (enet_host_settings::most_message_bytes; the loopback carries any length)
+        /// \throws exception for a message this host will not take, such as one longer than it carries
         virtual void send(const peer_id aPeer, const delivery aDelivery, const std::span<const std::byte> aMessage) = 0;
 
         /// \brief ends a connection. Messages already sent to the peer still arrive, before it learns
