@@ -11,8 +11,8 @@
       "hidden": true,
       "binaryDir": "${sourceDir}/out/build/${presetName}",
       "cacheVariables": {
-        "JFC_BUILD_TESTS": "ON",
-        "JFC_BUILD_DOCS": "OFF"
+        "JFCNET_BUILD_TESTS": "ON",
+        "JFCNET_BUILD_DOCS": "OFF"
       }
     },
     {
@@ -78,8 +78,8 @@
       "displayName": "Linux / documentation",
       "inherits": "linux-gcc",
       "cacheVariables": {
-        "JFC_BUILD_TESTS": "OFF",
-        "JFC_BUILD_DOCS": "ON"
+        "JFCNET_BUILD_TESTS": "OFF",
+        "JFCNET_BUILD_DOCS": "ON"
       }
     },
     {
@@ -205,17 +205,16 @@
       "description": "Configure with `emcmake cmake --preset emscripten`, which supplies the toolchain file.",
       "inherits": "base",
       "cacheVariables": {
-        "JFC_BUILD_TESTS": "OFF",
-        "JFC_BUILD_DOCS": "OFF"
+        "JFCNET_BUILD_TESTS": "OFF",
+        "JFCNET_BUILD_DOCS": "OFF"
       }
     },
     {
       "name": "emscripten-test",
-      "displayName": "Emscripten / WebRTC tests",
+      "displayName": "Emscripten / tests",
       "inherits": "emscripten",
       "cacheVariables": {
-        "JFC_BUILD_TESTS": "ON",
-        "JFC_NET_BUILD_WEBRTC_PROBE": "ON",
+        "JFCNET_BUILD_TESTS": "ON",
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_CXX_FLAGS": "-Wall -Wextra -Werror -fwasm-exceptions",
         "CMAKE_EXE_LINKER_FLAGS": "-fwasm-exceptions -sALLOW_MEMORY_GROWTH",

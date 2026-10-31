@@ -3,7 +3,7 @@
 #include <jfc/catch.hpp>
 
 #include <jfc/net/exception.h>
-#include <jfc/net/impaired_host.h>
+#include <jfc/net/ext/impaired_host.h>
 #include <jfc/net/loopback.h>
 
 #include <chrono>
@@ -16,6 +16,7 @@
 #include <span>
 
 using namespace jfc::net;
+using namespace jfc::net::ext;
 
 namespace {
     [[nodiscard]] std::vector<std::byte> bytes_of(const int aValue) {

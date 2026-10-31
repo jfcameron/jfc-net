@@ -1,6 +1,6 @@
 // © Joseph Cameron - MIT License
 
-#include <jfc/net/impaired_host.h>
+#include <jfc/net/ext/impaired_host.h>
 
 #include <algorithm>
 #include <chrono>
@@ -8,11 +8,11 @@
 #include <string>
 #include <string_view>
 
-namespace jfc::net {
+namespace jfc::net::ext {
     namespace {
         void validate(const impairments &aImpairments) {
             const auto refused = [](std::string_view aWhy) {
-                return std::invalid_argument("jfc::net::impaired_host: " + std::string(aWhy));
+                return std::invalid_argument("jfc::net::ext::impaired_host: " + std::string(aWhy));
             };
 
             if (!(aImpairments.latency >= 0)) throw refused("a latency of less than nothing");
@@ -30,8 +30,8 @@ namespace jfc::net {
     , m_Impairments(aImpairments)
     , m_Now(std::move(aNow))
     , m_Random(aImpairments.seed) {
-        if (!m_pWrapped) throw std::invalid_argument("jfc::net::impaired_host: needs a host to wrap");
-        if (!m_Now) throw std::invalid_argument("jfc::net::impaired_host: needs a clock");
+        if (!m_pWrapped) throw std::invalid_argument("jfc::net::ext::impaired_host: needs a host to wrap");
+        if (!m_Now) throw std::invalid_argument("jfc::net::ext::impaired_host: needs a clock");
 
         validate(m_Impairments);
     }
