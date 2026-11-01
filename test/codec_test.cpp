@@ -278,8 +278,8 @@ TEST_CASE("a refusal says where", "[net][codec]") {
     }
 }
 
-TEST_CASE("the root exception is a runtime_error", "[net][codec]") {
+TEST_CASE("a read past the end throws the root exception", "[net][codec]") {
     reader r({});
 
-    REQUIRE_THROWS_AS(r.read_u8(), std::runtime_error);
+    REQUIRE_THROWS_AS(r.read_u8(), exception);
 }
