@@ -195,6 +195,29 @@ jobs:
       - name: test
         run: ctest --preset emscripten-test
 
+  standards:
+    name: headers standalone (${{ matrix.compiler }}, ${{ matrix.std }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [g++, clang++]
+        std: [c++20, c++23, c++2c]
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: every header compiles alone, warnings are errors
+        run: |
+          for header in $(git ls-files 'include/*.h' 'impl/*/include/*.h' | sed -E 's#^(impl/[^/]+/)?include/##'); do
+            printf '#include <%s>\nint main(){}\n' "$header" > alone.cpp
+            ${{ matrix.compiler }} -std=${{ matrix.std }} -Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wdeprecated -Werror \
+                -Iinclude -c alone.cpp -o /dev/null
+          done
+
   docs:
     name: doxygen
     runs-on: ubuntu-latest
