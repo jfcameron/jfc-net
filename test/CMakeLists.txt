@@ -32,6 +32,18 @@ jfc_add_tests(
         jfcnet_conformance
 )
 
+jfc_add_tests(
+    C++_STANDARD 20
+
+    TEST_SOURCE_FILES
+        "${CMAKE_CURRENT_LIST_DIR}/ext/merged_host_conformance.cpp"
+        "${CMAKE_CURRENT_LIST_DIR}/ext/merged_host_test.cpp"
+
+    LIBRARIES
+        jfcnet_merged_host
+        jfcnet_conformance
+)
+
 if (NOT CMAKE_CROSSCOMPILING)
     add_test(NAME jfc-net_install_and_consume
         COMMAND "${CMAKE_COMMAND}"

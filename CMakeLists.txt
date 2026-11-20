@@ -65,6 +65,17 @@ if (NOT TARGET jfcnet)
 
     target_link_libraries(jfcnet_impaired_host PUBLIC jfcnet)
 
+    add_library(jfcnet_merged_host STATIC
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/ext/merged_host.cpp)
+
+    add_library(jfc::net_merged_host ALIAS jfcnet_merged_host)
+
+    set_target_properties(jfcnet_merged_host PROPERTIES EXPORT_NAME net_merged_host PREFIX "lib")
+
+    target_compile_features(jfcnet_merged_host PUBLIC cxx_std_20)
+
+    target_link_libraries(jfcnet_merged_host PUBLIC jfcnet)
+
     add_library(jfcnet_conformance INTERFACE)
 
     target_sources(jfcnet_conformance INTERFACE
@@ -84,7 +95,7 @@ if (NOT TARGET jfcnet)
 
     include(CMakePackageConfigHelpers)
 
-    install(TARGETS jfcnet jfcnet_impaired_host
+    install(TARGETS jfcnet jfcnet_impaired_host jfcnet_merged_host
         EXPORT jfcnet-targets
         ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
 

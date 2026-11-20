@@ -1,10 +1,12 @@
 // © Joseph Cameron - MIT License
 
 #include <jfc/net/ext/impaired_host.h>
+#include <jfc/net/ext/merged_host.h>
 #include <jfc/net/loopback.h>
 
 int main() {
-    jfc::net::loopback_server server;
+    auto pServer = std::make_shared<jfc::net::loopback_server>();
+    jfc::net::ext::merged_host merged({pServer});
 
-    return server.connect() ? 0 : 1;
+    return pServer->connect() && merged.poll() ? 0 : 1;
 }

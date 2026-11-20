@@ -8,6 +8,6 @@ find_package(jfcnet 0.1 REQUIRED)
 
 add_executable(consumer main.cpp)
 
-target_link_libraries(consumer PRIVATE jfc::net jfc::net_impaired_host)
+target_link_libraries(consumer PRIVATE jfc::net jfc::net_impaired_host jfc::net_merged_host)
 
 set_target_properties(consumer PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<0:>")

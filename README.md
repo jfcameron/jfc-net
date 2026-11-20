@@ -20,7 +20,7 @@ ctest --preset linux-gcc
 ```
 See `CMakePresets.json` for the full list of supported platforms and compilers. See `.github/workflows/ci.yml` to see exactly how CI runners build it on different platforms.
 
-To use it from another project, add it with `add_subdirectory` and link `jfcnet` for the interface, the codec and the loopback, and `jfcnet_impaired_host` for the impaired host. Installed CMake targets are `jfc::net` and `jfc::net_impaired_host`.
+To use it from another project, add it with `add_subdirectory` and link `jfcnet` for the interface, the codec and the loopback, `jfcnet_impaired_host` for the impaired host, and `jfcnet_merged_host` for the merged host. Installed CMake targets are `jfc::net`, `jfc::net_impaired_host` and `jfc::net_merged_host`.
 
 ## Overview
 ### Hosts
@@ -40,6 +40,9 @@ A server and its clients within one process. `connect` returns a new client. Mes
 
 #### `ext::impaired_host`
 Wraps another host and makes it deliberately unreliable, to simulate a bad network: latency, jitter, the loss of unreliable messages, and reordering if asked for. Reliable messages are still never lost or reordered, so the delivery rules above hold however bad it gets. It takes a seed, and optionally a clock, so the same impairments give the same run every time. This makes it possible to test how a game behaves at 200ms with 5% loss without needing a bad network to test on.
+
+#### `ext::merged_host`
+Several hosts as one: a server can take peers from two transports at once, such as its own players over a loopback and remote ones over the network. Each peer gets an id of the merged host's own, never given twice even when a merged host reuses its ids, and messages and disconnections go to the host the peer came from. Each host's events keep their order, and polling takes turns between hosts, starting with the first given, so peers on the first host are reported first when several are waiting. It is held to the same conformance tests as every transport.
 
 ### Messages
 #### `writer`
